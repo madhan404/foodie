@@ -104,7 +104,7 @@ npm install
 
 Configure the `.env` file (already configured):
 ```
-MONGODB_URI=mongodb+srv://user1:12345@cluster0.x6kepfv.mongodb.net/foodie?retryWrites=true&w=majority&appName=Cluster0
+MONGODB_URI=mongodb://localhost:27017/
 JWT_SECRET=your_super_secret_jwt_key_change_this_in_production
 PORT=5000
 NODE_ENV=development
