@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { Restaurant, Category, MenuItem } from "@/entities/all";
+import { customerAPI } from "@/api/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Search, Star, Clock, Truck, Filter, MapPin, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
-import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
 
 import HeroSection from "../components/home/HeroSection";
@@ -29,15 +28,18 @@ export default function HomePage() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [restaurantData, categoryData, menuData] = await Promise.all([
-        Restaurant.list(),
-        Category.list(),
-        MenuItem.list()
+      const [restaurantData, categoryData] = await Promise.all([
+        customerAPI.getRestaurants(),
+        customerAPI.getCategories()
       ]);
-      
-      setRestaurants(restaurantData);
-      setCategories(categoryData);
-      setFeaturedItems(menuData.slice(0, 8));
+
+      setRestaurants(restaurantData.data);
+      setCategories(categoryData.data);
+
+      if (restaurantData.data.length > 0) {
+        const menuData = await customerAPI.getRestaurantMenu(restaurantData.data[0]._id);
+        setFeaturedItems(menuData.data.slice(0, 8));
+      }
     } catch (error) {
       console.error("Error loading data:", error);
     }
@@ -46,8 +48,7 @@ export default function HomePage() {
 
   const filteredRestaurants = restaurants.filter(restaurant => {
     const matchesSearch = restaurant.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === "all" || restaurant.category_id === selectedCategory;
-    return matchesSearch && matchesCategory && restaurant.is_active;
+    return matchesSearch && restaurant.isActive;
   });
 
   return (
@@ -104,16 +105,16 @@ export default function HomePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredRestaurants.map((restaurant, index) => (
                 <motion.div
-                  key={restaurant.id}
+                  key={restaurant._id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
                 >
-                  <Link to={createPageUrl(`Restaurant?id=${restaurant.id}`)}>
+                  <Link to={`/restaurant?id=${restaurant._id}`}>
                     <Card className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-2 overflow-hidden">
                       <div className="relative h-48 overflow-hidden">
                         <img
-                          src={restaurant.image_url || "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400"}
+                          src={restaurant.image || "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400"}
                           alt={restaurant.name}
                           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                         />
@@ -124,16 +125,8 @@ export default function HomePage() {
                             {restaurant.rating || "4.5"}
                           </Badge>
                         </div>
-                        {restaurant.is_featured && (
-                          <div className="absolute top-2 right-2">
-                            <Badge className="bg-yellow-500 text-white">
-                              <Sparkles className="w-3 h-3 mr-1" />
-                              Featured
-                            </Badge>
-                          </div>
-                        )}
                       </div>
-                      
+
                       <CardContent className="p-4">
                         <h3 className="font-semibold text-lg mb-2 group-hover:text-orange-500 transition-colors">
                           {restaurant.name}
@@ -141,23 +134,16 @@ export default function HomePage() {
                         <p className="text-sm text-gray-600 mb-3 line-clamp-2">
                           {restaurant.description || "Delicious food awaits you!"}
                         </p>
-                        
+
                         <div className="flex justify-between items-center text-sm text-gray-500">
                           <div className="flex items-center gap-1">
                             <Clock className="w-4 h-4 text-orange-500" />
-                            <span>{restaurant.delivery_time || "30-45 min"}</span>
+                            <span>{restaurant.deliveryTime || "30-45 min"}</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <Truck className="w-4 h-4 text-orange-500" />
-                            <span>${restaurant.delivery_fee || "2.99"}</span>
+                            <span className="text-gray-600">{restaurant.cuisine}</span>
                           </div>
                         </div>
-                        
-                        {restaurant.min_order && (
-                          <div className="mt-2 text-xs text-gray-500">
-                            Min order: ${restaurant.min_order}
-                          </div>
-                        )}
                       </CardContent>
                     </Card>
                   </Link>

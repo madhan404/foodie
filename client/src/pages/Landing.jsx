@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { User } from '@/entities/User';
+import { Input } from '@/components/ui/input';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { createPageUrl } from '@/utils';
+import axios from 'axios';
 
 const FoodIcon = ({ children, className }) => (
   <motion.div
@@ -19,12 +19,51 @@ const FoodIcon = ({ children, className }) => (
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const [isLogin, setIsLogin] = useState(true);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    phone: ''
+  });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = async () => {
+  const handleInputChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+    setError('');
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
     try {
-      await User.loginWithRedirect(window.location.origin + createPageUrl('Home'));
-    } catch (error) {
-      console.error('Login failed', error);
+      const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
+      const payload = isLogin
+        ? { email: formData.email, password: formData.password }
+        : formData;
+
+      const response = await axios.post(`http://localhost:5000${endpoint}`, payload);
+
+      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('user', JSON.stringify(response.data));
+
+      if (response.data.role === 'admin') {
+        navigate('/admin/dashboard');
+      } else if (response.data.role === 'staff') {
+        navigate('/staff/orders');
+      } else {
+        navigate('/home');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Something went wrong. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -35,8 +74,7 @@ export default function LandingPage() {
         .font-brand { font-family: 'Pacifico', cursive; }
         .font-body { font-family: 'Poppins', sans-serif; }
       `}</style>
-      
-      {/* Left Side - Brand */}
+
       <div className="w-full md:w-1/2 bg-gradient-to-br from-orange-50 via-amber-50 to-orange-100 flex items-center justify-center p-8 md:p-12 relative overflow-hidden">
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
@@ -58,9 +96,7 @@ export default function LandingPage() {
         </motion.div>
       </div>
 
-      {/* Right Side - Login */}
       <div className="w-full md:w-1/2 bg-white flex items-center justify-center p-8 md:p-12 relative">
-        {/* Floating food icons */}
         <FoodIcon className="top-10 left-10">🍔</FoodIcon>
         <FoodIcon className="top-1/4 right-16">🍕</FoodIcon>
         <FoodIcon className="bottom-1/3 left-16">🍟</FoodIcon>
@@ -72,31 +108,113 @@ export default function LandingPage() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.3, ease: 'easeOut' }}
-          className="w-full max-w-sm z-10 text-center font-body"
+          className="w-full max-w-sm z-10 font-body"
         >
-          <h2 className="text-4xl font-bold text-gray-800 mb-4">Welcome Back!</h2>
-          <p className="text-gray-500 mb-12">Sign in to continue your culinary adventure.</p>
-          
-          <div className="space-y-6">
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+          <div className="text-center mb-8">
+            <h2 className="text-4xl font-bold text-gray-800 mb-4">
+              {isLogin ? 'Welcome Back!' : 'Join Foodie'}
+            </h2>
+            <p className="text-gray-500">
+              {isLogin ? 'Sign in to continue your culinary adventure.' : 'Create an account to get started.'}
+            </p>
+          </div>
+
+          <div className="flex mb-8 bg-gray-100 rounded-xl p-1">
+            <button
+              onClick={() => setIsLogin(true)}
+              className={`flex-1 py-3 rounded-lg font-semibold transition-all duration-300 ${
+                isLogin
+                  ? 'bg-white text-orange-500 shadow-md'
+                  : 'text-gray-500'
+              }`}
+            >
+              Login
+            </button>
+            <button
+              onClick={() => setIsLogin(false)}
+              className={`flex-1 py-3 rounded-lg font-semibold transition-all duration-300 ${
+                !isLogin
+                  ? 'bg-white text-orange-500 shadow-md'
+                  : 'text-gray-500'
+              }`}
+            >
+              Sign Up
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {!isLogin && (
+              <div>
+                <Input
+                  type="text"
+                  name="name"
+                  placeholder="Full Name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  required
+                  className="h-12 rounded-lg border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+                />
+              </div>
+            )}
+
+            <div>
+              <Input
+                type="email"
+                name="email"
+                placeholder="Email Address"
+                value={formData.email}
+                onChange={handleInputChange}
+                required
+                className="h-12 rounded-lg border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+              />
+            </div>
+
+            {!isLogin && (
+              <div>
+                <Input
+                  type="tel"
+                  name="phone"
+                  placeholder="Phone Number"
+                  value={formData.phone}
+                  onChange={handleInputChange}
+                  className="h-12 rounded-lg border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+                />
+              </div>
+            )}
+
+            <div>
+              <Input
+                type="password"
+                name="password"
+                placeholder="Password"
+                value={formData.password}
+                onChange={handleInputChange}
+                required
+                minLength={6}
+                className="h-12 rounded-lg border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+              />
+            </div>
+
+            {error && (
+              <div className="text-red-500 text-sm text-center p-2 bg-red-50 rounded-lg">
+                {error}
+              </div>
+            )}
+
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
               <Button
-                onClick={handleLogin}
-                className="w-full h-14 text-lg bg-orange-500 hover:bg-orange-600 text-white rounded-xl shadow-lg shadow-orange-200 transition-all duration-300"
+                type="submit"
+                disabled={loading}
+                className="w-full h-12 text-lg bg-orange-500 hover:bg-orange-600 text-white rounded-lg shadow-lg shadow-orange-200 transition-all duration-300"
               >
-                <svg className="w-6 h-6 mr-3" viewBox="0 0 48 48">
-                  <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039L38.417 9.562C34.331 5.923 29.475 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"></path>
-                  <path fill="#FF3D00" d="M6.306 14.691c-1.339 2.65-2.064 5.6-2.064 8.709c0 3.109.725 6.059 2.064 8.709L12.7 26.69c-.495-1.56-.769-3.23-.769-5s.274-3.44.769-5L6.306 14.691z"></path>
-                  <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A8 8 0 0 1 24 36c-4.418 0-8-3.582-8-8s3.582-8 8-8c1.849 0 3.554.629 4.907 1.688L33.591 15.1C30.5 12.015 26.49 10 24 10c-11.045 0-20 8.955-20 20s8.955 20 20 20z"></path>
-                  <path fill="#1976D2" d="M43.611 20.083H24v8h19.611c0 0-0.009-0.038-0.01-0.083C43.91 25.13 44 24.571 44 24c0-1.341-.138-2.65-.389-3.917z"></path>
-                </svg>
-                Sign In with Google
+                {loading ? 'Please wait...' : isLogin ? 'Sign In' : 'Sign Up'}
               </Button>
             </motion.div>
-            
-            <div className="text-center text-sm text-gray-500">
-              <p>By signing in, you agree to our</p>
-              <a href="#" className="text-orange-500 hover:underline">Terms of Service</a> & <a href="#" className="text-orange-500 hover:underline">Privacy Policy</a>.
-            </div>
+          </form>
+
+          <div className="text-center text-sm text-gray-500 mt-6">
+            <p>By continuing, you agree to our</p>
+            <a href="#" className="text-orange-500 hover:underline">Terms of Service</a> & <a href="#" className="text-orange-500 hover:underline">Privacy Policy</a>.
           </div>
         </motion.div>
       </div>
